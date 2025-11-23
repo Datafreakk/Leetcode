@@ -19,6 +19,10 @@ class Solution:
         return (('A' <= c <= 'Z') or 
                   ('a' <= c <= 'z') or 
                   ('0' <= c <= '9'))
+   
+  #Faster
+   def alphanum(self,c):
+       return c.isalnum()
 
 #Test
 sol = Solution()
