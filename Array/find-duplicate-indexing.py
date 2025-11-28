@@ -7,12 +7,12 @@ class Solution:
 
                if nums[i] == nums[nums[i]-1]:
                    return nums[i]
-               else: 
-                nums[i] , target_index = nums[target_index], nums[i]
-            return 
+               else:
+                   nums[i], nums[target_index] = nums[target_index], nums[i]  # correct swap
+             
         return -1
     
 #Test
 sol = Solution()
-nums = [3, 1, 3, 4, 2]
+nums = [2, 1, 3, 4, 2]
 print(sol.findDuplicate(nums))
