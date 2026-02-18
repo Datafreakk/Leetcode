@@ -10,8 +10,9 @@ class Solution:
      
 
 
-        
-
+    # //Python in built 
+    # def reverseaString(self, lst):
+    #  return lst[::-1]
 
 
 #Test

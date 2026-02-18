@@ -14,11 +14,13 @@ class Solution:
                  s[temp_l], s[temp_r] = s[temp_r], s[temp_l]
                  temp_l += 1
                  temp_r -= 1
+                left = r + 1
         
         return "".join(s)
+    
 
 
-s= "Let's take"
+s= "I love u"
 sol = Solution()
 print(sol.reverseWords(s))
         
