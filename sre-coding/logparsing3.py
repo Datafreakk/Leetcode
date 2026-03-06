@@ -1,3 +1,5 @@
+# que:ompute the percentage of requests with HTTP status ≥ 500 from a log file.
+
 def logparser3(log):
     tot_requests = 0
     error_requests = 0
