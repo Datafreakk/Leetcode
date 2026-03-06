@@ -12,6 +12,7 @@ ip_counter = Counter()
 with open(logfilepath,"r") as f:
     for line in f:
         line.strip().split()
+        print(line.strip().split())
 
         ips = ipregx.findall(line)
         if not ips:
