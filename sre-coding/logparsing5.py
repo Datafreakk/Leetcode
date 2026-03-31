@@ -1,8 +1,7 @@
+from collections import defaultdict
+from datetime import datetime
+
 def logparser5(timestamps):
-    from collections import defaultdict
-    from datetime import datetime
-
-
 
     request_per_hr = defaultdict(int)
 
@@ -15,7 +14,7 @@ def logparser5(timestamps):
         date, hour = i 
         print(f"{date} {hour}: {request_per_hr[i]} requests")
 
-
+# Tests
 timestamps = [
         "2026-03-10 08:15:23",
         "2026-03-10 08:45:12",
