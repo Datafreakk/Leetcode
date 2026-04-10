@@ -4,23 +4,25 @@
 import re
 from collections import Counter
 
-logfilepath = "sre-coding/log.log"
+IP_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
 
-ipregx = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
-ip_counter = Counter()
+def top_ips(filepath: str, n :int = 5) -> list[tuple[str,int]]:
+    ip_counter = Counter()
 
-with open(logfilepath,"r") as f:
-    for line in f:
-        line.strip().split()
-        print(line.strip().split())
+    with open(filepath,"r") as f:
+        for line in f:
+            try :
+                ips =IP_pattern.findall(line)
+                if not ips:
+                    continue
+                ip_counter[ips[0]] +=1
+            except Exception:
+                continue
+    return ip_counter.most_common(n)
 
-        ips = ipregx.findall(line)
-        if not ips:
-            continue
-        ips =ips[0]
-        ip_counter[ips] += 1
-
-    top5_ips = ip_counter.most_common(5)
-
-    for ip, count in top5_ips:
-        print(f"{ip}: {count} requests")
+if __name__ == "__main__":
+    results = top_ips("log.log")
+    for ips, count in results:
+        print(f"{ips}: {count} requests")
+        
+        
