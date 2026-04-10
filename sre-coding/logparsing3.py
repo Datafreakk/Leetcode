@@ -1,33 +1,35 @@
-# que:ompute the percentage of requests with HTTP status ≥ 500 from a log file.
+# Question:Compute the percentage of requests with HTTP status ≥ 500 from a log file.
 
-def logparser3(log):
-    tot_requests = 0
-    error_requests = 0
+def log_parser(log:str) -> None:
+    total_req = 0
+    error_req = 0
+    percent_of_error_req = 0
+    
+    try:
+     with open(log, "r") as file:
+         for line in file:
+             lines = line.strip().split()
+             if len(lines) < 9:
+                 continue
+             try:
+                 status_code = int(lines[-2])
+             except ValueError:
+                 continue
+             total_req +=1
+             if status_code >=500:
+                 error_req +=1
+                                 
+    except FileNotFoundError:
+        print(f"[ERROR] Log file not found: {log}")
+        return 
+    if total_req == 0:
+        print(f"[Warn] No valid Log entries found")
+        return
+    percent_of_error_req = (error_req/ total_req ) * 100 
+    print(f"Total requests is: {total_req}")
+    print(f"Total error requests is: {error_req}")
+    print(f"Total percentage of error request is:  {percent_of_error_req:.2f}%")
 
-    with open ("access.log", "r" ) as file:
-        for line in file:
-            parts = line.strip().split()
-
-            if len(parts) < 2:
-                continue
-
-            try:
-             statuscode = int(parts[-2])
-            except ValueError:
-                continue
-
-            tot_requests +=1
-            if statuscode > 500:
-                error_requests += 1
-            
-    if tot_requests == 0:
-        error_requests = 0
-    else:
-        total_percenatge = (error_requests/tot_requests ) * 100
-
-    print(f"Total requests: {tot_requests}")
-    print(f"5xx requests: {error_requests}")
-    print(f"Percentage: {total_percenatge:.2f}%")
 
 
-logparser3("access.log")
+log_parser("access.log")
