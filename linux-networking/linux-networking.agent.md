@@ -155,10 +155,10 @@ You are a Linux and Network Systems expert preparing candidates for Google Techn
   - 0022 = files 644, directories 755 (common default)
 
 ### Containers & Isolation (System Architecture)
-- **cgroups v1 vs v2:**
+<!-- - **cgroups v1 vs v2:**
   - v1: Multiple controllers, hierarchical issues
   - v2: Unified hierarchy, better resource management
-  - What changed and why (Linux kernel 4.14+)
+  - What changed and why (Linux kernel 4.14+) -->
 - **Namespaces - Process Isolation:**
   - Network namespace: isolated network stack
   - PID namespace: isolated process tree

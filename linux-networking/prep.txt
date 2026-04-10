@@ -1,0 +1,66 @@
+To finish this comprehensive syllabus in **14 days** while staying focused on the **Google TSE** persona (Technical Detective) rather than an SRE/Dev level, you need to group these topics by **functional impact** rather than just a list of commands.
+
+Here is a high-speed, two-week sprint schedule designed to build diagnostic intuition.
+
+---
+
+## Week 1: The "Host" (Systems & Resources)
+*Goal: Understand how a single Linux machine breathes, works, and fails.*
+
+### Days 1–2: Process Lifecycle & Management
+* **Focus:** How processes start, talk, and die.
+* **Key Tasks:** * Master the difference between **SIGTERM** and **SIGKILL** (Graceful vs. Forced).
+    * Understand **Zombie vs. Orphan** processes (Why PID 1 is the "Subreaper").
+    * **TSE Skill:** Use `strace` to see why a process is hanging in a `D` state (Uninterruptible Sleep).
+
+### Days 3–4: Memory & CPU (Saturation)
+* **Focus:** Distinguishing between "Busy" and "Stuck."
+* **Key Tasks:** * **Memory:** RSS vs. VSZ and why **Available** is the only number that matters in `free -h`.
+    * **CPU:** Explain why a **Load Average** of 10 on a 2-core machine is a disaster, but 20% CPU usage might still mean the app is slow (I/O Wait).
+    * **SRE/TSE crossover:** Understand **Slab memory** and **OOM Killer** scores.
+
+### Day 5: File System & Storage "Gotchas"
+* **Focus:** Hidden blockers.
+* **Key Tasks:** * **The Inode Trap:** Practice the scenario where `df -h` shows space but you can't create files (Inode exhaustion).
+    * **Deleted-but-open files:** Use `lsof | grep deleted` to find "ghost" disk usage.
+
+### Days 6–7: Permissions, Security & Containers
+* **Focus:** Isolation and access.
+* **Key Tasks:** * **Perms:** `setuid/setgid` and the "SSH 600" rule.
+    * **Namespaces/Cgroups:** Don't learn the kernel code; learn how **CPU Throttling** looks in a container and how **Namespaces** isolate a network stack.
+
+---
+
+## Week 2: The "Wire" (Networking & Troubleshooting)
+*Goal: Prove where the packet is dropping between the Client and the Server.*
+
+### Days 8–9: Networking Fundamentals (L3/L4)
+* **Focus:** Connectivity and Routing.
+* **Key Tasks:** * **The Trinity:** Refused vs. Timeout vs. DNS Failure.
+    * **Routing:** `ip route` and `veth pairs` (the "virtual cables" for containers).
+    * **TSE Skill:** Use `tcpdump` to find if a TCP handshake (`SYN`, `SYN-ACK`, `ACK`) is completing.
+
+
+### Days 10–11: DNS & Application Layer (L7)
+* **Focus:** The most common point of failure.
+* **Key Tasks:** * **Resolution Path:** Trace from `/etc/resolv.conf` to Authoritative servers using `dig +trace`.
+    * **HTTP/TLS:** Use `curl -v` to debug 502/504 errors and `openssl` to check for expired certificates.
+
+### Day 12: Advanced Troubleshooting Tools
+* **Focus:** Speed and precision.
+* **Key Tasks:** * Deep dive into `mtr` for intermittent latency.
+    * Use `netstat` (or `ss -tlnp`) to prove if a service is actually listening on the port the customer thinks it is.
+
+### Days 13–14: Mock Interviews & Methodology
+* **Focus:** Communication and "The Google Way."
+* **Key Tasks:** * Use your **TSE Prep Agent** in **Mock Interviewer Mode**.
+    * Practice the **Clarify → Baseline → Hypothesis → Test** workflow.
+    * **Judgment:** Practice saying, "I have ruled out the OS; I am now escalating to the Database team because of X evidence."
+
+---
+
+### Study Pro-Tip for TSE:
+Whenever you learn a command (like `iostat` or `dig`), ask yourself: **"What specific customer problem does this prove or disprove?"**
+* *Example:* `iostat` doesn't just show disk speed; it proves the customer's database is slow because the underlying SSD is saturated.
+
+Are you ready to dive into **Day 1 (Process Lifecycle)**, or would you like a specific deep-dive on one of these blocks first?
