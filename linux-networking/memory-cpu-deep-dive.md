@@ -295,7 +295,7 @@ ps aux --sort=-%mem | head -20
 
 # Simple long-term tracking: record RSS every minute
 while true; do
-  echo "$(date) $(ps -o rss= -p <pid>)" >> /tmp/mem_track.log
+  echo "$(date) $(ps -o rss= -p 1715)" >> /tmp/mem_track.log
   sleep 60
 done
 ```
@@ -486,6 +486,18 @@ mpstat -P ALL 1 3
 
 # "Is it I/O wait, not real CPU work?"
 iostat -x 1 5    # %util and await columns
+# Device r/s w/s rkB/s wkB/s await %util
+# sda 1.2 842.0 4.8 210000 124ms 99%
+# "sda is saturated and the pattern is write-heavy. This isn't the app reading data — something is writing massively to disk. I need to find the process."
+# -o = only show processes doing I/O
+iotop -o
+
+# What files is that PID writing to?
+lsof -p 14821
+# TID PRIO USER DISK READ DISK WRITE COMMAND
+# 14821 be/4 root 0.00 B/s 198.7 M/s rsync
+# rsync 14821 root 26w REG 8,1 /var/backups/db_backup_20240411.tar.gz
+# Correlation found: An rsync backup job started 32 minutes ago (matches when slowness began) and is writing a 198MB/s stream to /var/backups. This is saturating sda and causing 124ms I/O wait for all other processes including the Java app.
 
 # === COMBINED: Full picture in one shot ===
 echo "=== LOAD ===" && uptime && echo "=== MEMORY ===" && free -h && echo "=== SWAP ===" && vmstat 1 3 && echo "=== TOP PROCESSES ===" && ps aux --sort=-%mem | head -5
@@ -557,3 +569,134 @@ A: Use `oom_score_adj` to protect critical processes (set to -1000 for immunity)
 | Track process memory over time | `pidstat -r -p <pid> 5` |
 | Check if container was OOM-killed | `docker inspect <id> \| grep -i oom` |
 | Check K8s pod OOM | `kubectl describe pod <name> \| grep -i oom` |
+
+
+# Step 1 — confirm RSS is growing ps -o pid,rss,vsz,comm -p $(pgrep java) # Step 2 — watch it trend every 60s while true; do echo "$(date +%H:%M) RSS=$(ps -o rss= -p $(pgrep java))kB" sleep 60 done # Step 3 — where is the memory? smaps breakdown cat /proc/$(pgrep java)/smaps | awk '/^Rss/{sum+=$2} END{print sum"kB RSS total"}' # Step 4 — is any in swap? grep VmSwap /proc/$(pgrep java)/status # Step 5 — pidstat to confirm it's not CPU thrashing pidstat -p $(pgrep java) 5 12
+Say out loud
+"I'm using ps and /proc to track memory because pidstat's -r flag only shows minflt/majflt — it doesn't give me absolute RSS in a readable trend. I want a number I can plot. Once I've confirmed the leak I'll use pidstat to check whether the process is also CPU-bound or purely memory."
+The one-line decision rule
+Use pidstat when you want to watch a process behave over time — CPU, I/O, threads, context switches.
+Use /proc + ps + smem when you want to understand memory anatomy — how much, where, is it growing, is it swapped.
+
+
+Inteview questions 
+1
+cpu
+<!-- If CPU is maxed at 85%, the application is CPU-bound. I'd first identify which process (it's almost always the main app). Then:
+
+If it's a web app or stateless service, I scale horizontally — add more instances behind a load balancer. If it's a database or single-threaded app, I either optimize the code (work with dev team) or upgrade to a larger instance. I'd also set up monitoring/alerting so we catch 70% CPU before it becomes a problem, and configure auto-scaling if the platform supports it." -->
+
+High Load + Low CPU% (I/O problem)
+
+<!-- "If load is high but CPU is low, I'm seeing I/O wait. I'd run vmstat to confirm wa% is high, then iostat -x to find which disk is saturated. Using iotop or lsof, I'd identify what's doing the I/O.
+
+Common fixes: if it's a backup, reschedule it. If it's slow storage, migrate to SSD or add a cache layer (Redis). If it's a database, work with the dev team to optimize queries — usually it's N+1 queries or missing indexes.
+
+For immediate relief, I'd redirect heavy I/O jobs to off-peak hours. Long-term, I'd upgrade the storage or add caching. -->
+
+# You see this:
+$ uptime
+load average: 15.2, 12.8, 10.5
+
+# You run vmstat and see:
+$ vmstat 1 3
+ r  b  us sy id wa
+15  6   4  1 20 75
+↑  ↑        ↑  ↑
+queue blocked CPU is waiting on disk
+
+# Your diagnosis in 10 seconds:
+"The system is CPU-bound? NO. I/O-bound? YES. Here's why:
+ • Load 15.2 (overloaded) ✓
+ • but us% is only 4% (app barely running)
+ • and wa% is 75% (CPU idle waiting on disk)
+ • and b=6 (6 processes blocked, waiting for disk)
+ 
+The disk is the problem, not the CPU. I need to check iostat to see
+which disk is saturated, then iotop/lsof to find the culprit."
+
+memory
+<!-- f memory is low, I first identify the memory hog with ps aux --sort=%mem. Then I determine if it's a leak or legitimate usage:
+
+If it's a leak (RSS grows monotonically and restarting resets it), I'd restart the service immediately to reduce pressure, then work with the dev team to profile and fix the leak using memory profilers.
+
+If it's legitimate — the app just needs that much RAM — I scale up: add more RAM if it's a single instance, or add more instances if it's a service. For containerized apps, I set proper memory limits so one bloated container doesn't take down the whole system.
+
+To prevent this, I set monitoring alerts at 70% utilization so we scale before hitting crisis." -->
+
+----------------------Full flow---------------------
+
+Customer says "service is slow, keeps restarting"
+
+# 1. Memory actually low?
+$ free -h
+              total    used    free    shared buff/cache available
+Mem:           16Gi    12Gi    1.2Gi   256Mi   2.8Gi      2Gi
+              ↑ available is only 2Gi (12.5%) → YES, memory is tight
+
+# 2. Which process?
+$ ps aux --sort=-%mem | head -5
+USER    PID  %MEM   VSZ      RSS      COMMAND
+root   1234  45.0%  8388608  7340032  java  ← 7GB RSS, that's our suspect
+root   5678   8.0%  2097152  1310720  mysql
+...
+
+# 3. Is it swapping?
+$ vmstat 1 3
+ r  b  swpd     free  si     so    ...  wa
+ 8  3  2097152  50000 500   1200   ...  82
+ ↑  ↑  ↑        ↑     ↑     ↑         ↑
+ Yes! swapd is 2GB, si/so are high, wa=82% means disk I/O hell
+
+# 4. PROOF: Track RSS every minute for 10 minutes
+$ for i in {1..10}; do
+    echo "$(date +%H:%M) RSS=$(ps -o rss= -p 1234)kB"
+    sleep 60
+  done
+
+14:00 RSS=6291456kB   ← 6GB
+14:01 RSS=6350000kB   ← growing
+14:02 RSS=6400000kB   ← growing
+14:03 RSS=6450000kB   ← growing
+14:04 RSS=6500000kB   ← growing
+14:05 RSS=6550000kB   ← still growing, never drops
+14:06 RSS=6600000kB   ← definitely a leak
+...
+
+# Pattern: RSS grew 300MB in 6 minutes at DAY 14
+# If this continues: (300MB/6min) × (60min/hour) × (24hr/day) × 14 days = ~20GB
+# This matches "service slow after 2 weeks"
+
+# 5. Is the memory in swap or RAM?
+$ grep VmSwap /proc/1234/status
+VmSwap:            0 kB  ← All 7GB is in real RAM, none in swap yet
+
+# 6. Where in the memory?
+$ cat /proc/1234/smaps | awk '/^[^ ]/{region=$0} /^Rss/{rss+=$2; print region, $2"kB"} END{print "Total:", rss"kB"}'
+# Shows heap, libraries, stacks — usually heap is growing (app leak)
+
+# 7. DIAGNOSIS you tell the dev team:
+"The Java process has a memory leak:
+ • RSS: 6.5GB (45% of system RAM)
+ • Growth rate: ~50MB/minute
+ • Pattern: Climbs for 14 days, then crashing
+ • Restart resets RSS to baseline, then climbs again
+ • Heap analysis shows accumulating objects in {specific class}
+ 
+ → FIX: Profile with JProfiler or YourKit, find the class that's never freed."
+
+----------------------Full flow---------------------
+
+swappine
+
+<!-- "Active swapping is a crisis — the system is spending more time moving pages than doing work. It's slow and getting worse.
+
+My immediate action: restart the bloated service to free memory, then investigate. If it's a memory leak, I identify it with profiling tools and fix the code. If it's just high legitimate usage, I add more RAM.
+
+Long-term: I set vm.swappiness=10 so the kernel avoids swapping, use monitoring to catch high memory before thrashing happens, and set per-process memory limits so one bad process doesn't drag down the -->
+
+The Decision Point: When to Act
+State	Action	Timeline
+High memory but normal swap	Monitor, investigate	Can wait 1-2 hours
+Swapping starting (si/so > 50)	Consider restart	Within 30 minutes
+Thrashing (si/so > 5000, wa > 70%)	Restart immediately	Now, not later
