@@ -1,28 +1,3 @@
-# Problem:
-# Given a structured log file where each line contains:
-#   timestamp (ISO format), log level, service name
-#   and optional key=value pairs (id=, latency=)
-#
-# Task:
-#   1. Parse each line into a typed dict
-#   2. id= is mandatory — skip line if missing or not an integer
-#   3. latency= is optional — None if missing
-#   4. Skip malformed lines silently — never crash
-#   5. Return only valid records as a list of dicts
-#
-# Input line:
-#   2026-04-09T10:00:01Z  INFO  auth-service  id=101 latency=120ms
-#
-# Output dict:
-#   {
-#       "timestamp":  datetime object,
-#       "level":      "INFO",
-#       "service":    "auth-service",
-#       "user_id":    101,
-#       "latency_ms": 120
-#   }
-
-
 import re
 from datetime import datetime
 from typing import Optional
